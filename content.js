@@ -39,7 +39,7 @@
     const t = document.createElement("div");
     t.className = "qrlens-toast qrlens-toast--error";
     t.textContent = "QRLens: Failed to load decoder. Please try again.";
-    document.body.appendChild(t);
+    root.appendChild(t);
     setTimeout(() => t.remove(), 4000);
     window.__qrlens_active = false;
     return;
@@ -119,7 +119,7 @@
     const wrap = el("div", "qrlens-loader-wrap");
     const spin = el("div", "qrlens-loader");
     wrap.appendChild(spin);
-    document.body.appendChild(wrap);
+    root.appendChild(wrap);
     return wrap;
   }
 
@@ -156,7 +156,7 @@
     startY   = e.clientY;
     dragging = true;
     updateSelectionRect(startX, startY, startX, startY);
-    document.body.appendChild(selection);
+    root.appendChild(selection);
   });
 
   overlay.addEventListener("mousemove", (e) => {
@@ -343,11 +343,11 @@
     menu.style.top = `${top}px`;
     menu.style.width = `${menuWidth}px`;
 
-    document.body.appendChild(menu);
+    root.appendChild(menu);
 
     // Backdrop to catch clicks outside
     const backdrop = el("div", "qrlens-result-backdrop");
-    document.body.appendChild(backdrop);
+    root.appendChild(backdrop);
     backdrop.addEventListener("click", dismissMenu);
 
     // Dismiss handler
