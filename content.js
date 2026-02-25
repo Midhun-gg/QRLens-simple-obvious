@@ -88,7 +88,7 @@
     selection.remove();
     banner.remove();
     document.querySelectorAll(
-      ".qrlens-loader-wrap"
+      ".qrlens-loader-wrap, .qrlens-result-menu, .qrlens-result-backdrop"
     ).forEach((n) => n.remove());
     window.__qrlens_active = false;
   }
@@ -217,20 +217,8 @@
       if (loader) loader.remove();
 
       if (decoded) {
-        // If it looks like a URL, open it; otherwise show it
-        if (/^https?:\/\//i.test(decoded)) {
-          showToast("QR decoded! Opening…", "success", 2000);
-          chrome.runtime.sendMessage({ type: "openTab", url: decoded });
-        } else {
-          // Try to make it a valid URL
-          const url = `https://${decoded}`;
-          if (isValidUrl(url)) {
-            showToast("QR decoded! Opening…", "success", 2000);
-            chrome.runtime.sendMessage({ type: "openTab", url });
-          } else {
-            showToast(`QR content: ${decoded}`, "success", 5000);
-          }
-        }
+        showResultMenu(decoded, rect);
+        return; // don't cleanup yet — menu is interactive
       } else {
         showToast("No QR code detected. Try selecting a tighter area around the QR code.", "error", 5000);
       }
@@ -243,6 +231,95 @@
     // Clean up overlay elements immediately; toasts self-remove
     cleanup();
     document.removeEventListener("keydown", onKeyDown);
+  }
+
+  /* ----------------------------------------------------------------
+   * Result menu: neobrutalism-style popup with URL, copy & open
+   * -------------------------------------------------------------- */
+  function showResultMenu(decoded, rect) {
+    // Determine the best URL
+    let url = decoded;
+    let isUrl = /^https?:\/\//i.test(decoded);
+    if (!isUrl) {
+      const tryUrl = `https://${decoded}`;
+      if (isValidUrl(tryUrl)) {
+        url = tryUrl;
+        isUrl = true;
+      }
+    }
+
+    // Build menu container
+    const menu = el("div", "qrlens-result-menu");
+
+    // URL display
+    const urlRow = el("div", "qrlens-result-url");
+    urlRow.textContent = decoded;
+    urlRow.title = decoded;
+    menu.appendChild(urlRow);
+
+    // Buttons row
+    const btnRow = el("div", "qrlens-result-buttons");
+
+    // Copy button
+    const copyBtn = el("button", "qrlens-result-btn qrlens-result-btn--copy");
+    copyBtn.textContent = "📋 Copy";
+    copyBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      navigator.clipboard.writeText(decoded).then(() => {
+        copyBtn.textContent = "✅ Copied!";
+        setTimeout(() => { copyBtn.textContent = "📋 Copy"; }, 1500);
+      });
+    });
+    btnRow.appendChild(copyBtn);
+
+    // Open link button (only if valid URL)
+    if (isUrl) {
+      const openBtn = el("button", "qrlens-result-btn qrlens-result-btn--open");
+      openBtn.textContent = "🔗 Open Link";
+      openBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        chrome.runtime.sendMessage({ type: "openTab", url });
+        dismissMenu();
+      });
+      btnRow.appendChild(openBtn);
+    }
+
+    menu.appendChild(btnRow);
+
+    // Position menu below the selection rect, centered
+    const menuWidth = 340;
+    let left = rect.x + (rect.w / 2) - (menuWidth / 2);
+    let top = rect.y + rect.h + 12;
+
+    // Keep within viewport
+    if (left < 12) left = 12;
+    if (left + menuWidth > window.innerWidth - 12) left = window.innerWidth - menuWidth - 12;
+    if (top + 120 > window.innerHeight) top = rect.y - 120; // flip above
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.style.width = `${menuWidth}px`;
+
+    document.body.appendChild(menu);
+
+    // Backdrop to catch clicks outside
+    const backdrop = el("div", "qrlens-result-backdrop");
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener("click", dismissMenu);
+
+    // Dismiss handler
+    function dismissMenu() {
+      menu.remove();
+      backdrop.remove();
+      cleanup();
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keydown", escHandler);
+    }
+
+    function escHandler(e) {
+      if (e.key === "Escape") dismissMenu();
+    }
+    document.addEventListener("keydown", escHandler);
   }
 
   /* ----------------------------------------------------------------
