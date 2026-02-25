@@ -191,9 +191,13 @@
     if (e.key === "Escape") {
       cleanup();
       document.removeEventListener("keydown", onKeyDown);
+      overlay.removeEventListener("keydown", onKeyDown);
     }
   }
   document.addEventListener("keydown", onKeyDown);
+  overlay.addEventListener("keydown", onKeyDown);
+  overlay.tabIndex = -1;
+  overlay.focus();
 
   /* ----------------------------------------------------------------
    * Helper: wait for the browser to actually repaint
