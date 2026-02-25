@@ -178,7 +178,7 @@
       // 6. Crop to selected region (handle devicePixelRatio)
       const dpr    = window.devicePixelRatio || 1;
       const canvas = document.createElement("canvas");
-      const ctx    = canvas.getContext("2d");
+      const ctx    = canvas.getContext("2d", { willReadFrequently: true });
 
       canvas.width  = Math.round(rect.w * dpr);
       canvas.height = Math.round(rect.h * dpr);
@@ -266,7 +266,7 @@
    * -------------------------------------------------------------- */
   function upscaleCanvas(source, scale) {
     const c = document.createElement("canvas");
-    const cx = c.getContext("2d");
+    const cx = c.getContext("2d", { willReadFrequently: true });
     c.width  = source.width * scale;
     c.height = source.height * scale;
     cx.imageSmoothingEnabled = false;
