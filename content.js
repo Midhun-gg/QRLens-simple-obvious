@@ -287,7 +287,12 @@
     // Determine the best URL
     let url = decoded;
     let isUrl = /^https?:\/\//i.test(decoded);
-    if (!isUrl) {
+
+    // Security: block dangerous schemes
+    const dangerous = /^(javascript|data|file|vbscript):/i.test(decoded);
+    if (dangerous) isUrl = false;
+
+    if (!isUrl && !dangerous) {
       const tryUrl = `https://${decoded}`;
       if (isValidUrl(tryUrl)) {
         url = tryUrl;

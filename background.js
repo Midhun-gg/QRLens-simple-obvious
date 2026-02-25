@@ -91,6 +91,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // --- Open decoded URL in new tab --------------------------------
   if (message.type === "openTab") {
-    chrome.tabs.create({ url: message.url, active: true });
+    const url = message.url || "";
+    // Security: only allow http/https URLs
+    if (/^https?:\/\//i.test(url)) {
+      chrome.tabs.create({ url, active: true });
+    } else {
+      console.warn("QRLens: Blocked unsafe URL scheme:", url);
+    }
   }
 });
