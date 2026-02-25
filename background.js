@@ -54,18 +54,38 @@ chrome.action.onClicked.addListener(async (tab) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // --- Capture visible tab ----------------------------------------
   if (message.type === "capture") {
-    chrome.tabs.captureVisibleTab(
-      sender.tab.windowId,
-      { format: "png" },
-      (dataUrl) => {
+    const windowId = sender.tab ? sender.tab.windowId : chrome.windows.WINDOW_ID_CURRENT;
+
+    // Use promise-based API (MV3) with callback fallback
+    try {
+      chrome.tabs.captureVisibleTab(windowId, { format: "png" })
+        .then((dataUrl) => {
+          sendResponse({ dataUrl });
+        })
+        .catch((err) => {
+          console.error("QRLens: captureVisibleTab promise error:", err);
+          // Fallback: try without specifying windowId
+          chrome.tabs.captureVisibleTab(null, { format: "png" })
+            .then((dataUrl) => {
+              sendResponse({ dataUrl });
+            })
+            .catch((err2) => {
+              console.error("QRLens: captureVisibleTab fallback error:", err2);
+              sendResponse({ error: err2.message || "Tab capture failed" });
+            });
+        });
+    } catch (syncErr) {
+      // Final fallback: callback-based API
+      console.warn("QRLens: Using callback API for captureVisibleTab");
+      chrome.tabs.captureVisibleTab(windowId, { format: "png" }, (dataUrl) => {
         if (chrome.runtime.lastError) {
-          console.error("QRLens: captureVisibleTab failed:", chrome.runtime.lastError.message);
           sendResponse({ error: chrome.runtime.lastError.message });
         } else {
           sendResponse({ dataUrl });
         }
-      },
-    );
+      });
+    }
+
     return true; // keep message channel open for async response
   }
 

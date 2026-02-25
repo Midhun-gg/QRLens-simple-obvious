@@ -18,6 +18,7 @@
 .qrlens-selection {
   position: fixed;
   border: 2px solid #00e1ff;
+  border-radius: 8px;
   background: rgba(0, 225, 255, 0.08);
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
   z-index: 2147483647;

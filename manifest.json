@@ -5,7 +5,8 @@
   "description": "Scan and decode QR codes on any webpage – just click and drag.",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>"
