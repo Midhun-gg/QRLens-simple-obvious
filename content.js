@@ -12,9 +12,21 @@
 
   /* ----------------------------------------------------------------
    * Guard: prevent double-injection
+   * If the flag is set but no overlay exists in DOM, a previous
+   * attempt failed — reset and allow re-injection.
    * -------------------------------------------------------------- */
-  if (window.__qrlens_active) return;
+  if (window.__qrlens_active) {
+    if (document.querySelector(".qrlens-overlay")) {
+      console.log("QRLens: Already active, ignoring duplicate injection.");
+      return;
+    }
+    // Previous run left the flag stuck — reset it
+    console.log("QRLens: Stale flag detected, resetting.");
+    window.__qrlens_active = false;
+  }
   window.__qrlens_active = true;
+
+  console.log("QRLens: Content script loaded on", location.hostname);
 
   /* ----------------------------------------------------------------
    * Ensure jsQR is available as a global function.
@@ -42,6 +54,17 @@
     return node;
   };
 
+  /** Apply a style object with !important to a DOM node */
+  function applyStyles(node, styles) {
+    for (const [prop, val] of Object.entries(styles)) {
+      node.style.setProperty(prop, val, "important");
+    }
+  }
+
+  /** Where to append QRLens elements — documentElement is safer than body
+   *  because some SPAs (Bing, Gmail) aggressively manage body children. */
+  const root = document.documentElement;
+
   /* ----------------------------------------------------------------
    * State
    * -------------------------------------------------------------- */
@@ -54,10 +77,30 @@
   const selection = el("div", "qrlens-selection");
   const banner    = el("div", "qrlens-banner");
 
+  // Apply critical inline styles so no page CSS can override
+  applyStyles(overlay, {
+    position: "fixed",
+    top: "0",
+    left: "0",
+    width: "100vw",
+    height: "100vh",
+    "z-index": "2147483647",
+    background: "rgba(0,0,0,0.35)",
+    cursor: "crosshair",
+    "user-select": "none",
+    margin: "0",
+    padding: "0",
+    "pointer-events": "auto",
+    display: "block",
+    visibility: "visible",
+    opacity: "1",
+  });
+
   banner.textContent = "Draw a box around the QR code · Press Esc to cancel";
 
-  document.body.appendChild(overlay);
-  document.body.appendChild(banner);
+  root.appendChild(overlay);
+  root.appendChild(banner);
+  console.log("QRLens: Overlay appended, visible:", overlay.offsetWidth > 0);
 
   /* ----------------------------------------------------------------
    * Toast helper
@@ -65,7 +108,7 @@
   function showToast(text, type = "error", duration = 3000) {
     const toast = el("div", `qrlens-toast qrlens-toast--${type}`);
     toast.textContent = text;
-    document.body.appendChild(toast);
+    root.appendChild(toast);
     setTimeout(() => toast.remove(), duration);
   }
 

@@ -5,27 +5,40 @@
 
 /* ── Full-page overlay ──────────────────────────────────────────── */
 .qrlens-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2147483647; /* max z-index */
-  background: rgba(0, 0, 0, 0.35);
-  cursor: crosshair;
-  user-select: none;
-  -webkit-user-select: none;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  cursor: crosshair !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  top: 0 !important;
+  left: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: auto !important;
 }
 
 /* ── Selection rectangle ────────────────────────────────────────── */
 .qrlens-selection {
-  position: fixed;
-  border: 5px solid #000000;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.06);
+  position: fixed !important;
+  border: 5px solid #000000 !important;
+  border-radius: 10px !important;
+  background: rgba(0, 0, 0, 0.06) !important;
   box-shadow:
     0 0 0 9999px rgba(0, 0, 0, 0.45),
-    0 0 14px 3px rgba(77, 77, 77, 0.35);
-  z-index: 2147483647;
-  pointer-events: none;
-  transition: none;
+    0 0 14px 3px rgba(77, 77, 77, 0.35) !important;
+  z-index: 2147483647 !important;
+  pointer-events: none !important;
+  transition: none !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* ── Instruction banner ─────────────────────────────────────────── */
