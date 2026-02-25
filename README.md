@@ -91,7 +91,3 @@ QRLens-simple-obvious/
 ## Privacy
 
 QRLens does **not** collect, store, or transmit any user data. All QR code processing happens entirely within your browser. No analytics, tracking, or external requests are made.
-
-## License
-
-MIT
