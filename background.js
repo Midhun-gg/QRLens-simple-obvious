@@ -12,13 +12,15 @@
 /* ------------------------------------------------------------------ */
 
 chrome.action.onClicked.addListener(async (tab) => {
-  // Avoid injecting on restricted pages
+  // Guard: skip restricted browser-internal pages
+  const url = tab.url || "";
   if (
-    !tab.url ||
-    tab.url.startsWith("chrome://") ||
-    tab.url.startsWith("chrome-extension://")
+    url.startsWith("chrome://") ||
+    url.startsWith("chrome-extension://") ||
+    url.startsWith("edge://") ||
+    url.startsWith("about:")
   ) {
-    console.warn("QRLens: Cannot run on this page.");
+    console.warn("QRLens: Cannot run on this page:", url);
     return;
   }
 
@@ -29,11 +31,17 @@ chrome.action.onClicked.addListener(async (tab) => {
       files: ["styles.css"],
     });
 
-    // Inject the jsQR library, then the content script
+    // Inject jsQR library first, then content script (separate calls for reliability)
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ["lib/jsQR.min.js", "content.js"],
+      files: ["lib/jsQR.min.js"],
     });
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["content.js"],
+    });
+
+    console.log("QRLens: Injected successfully into tab", tab.id);
   } catch (err) {
     console.error("QRLens: Injection failed –", err);
   }
@@ -51,6 +59,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       { format: "png" },
       (dataUrl) => {
         if (chrome.runtime.lastError) {
+          console.error("QRLens: captureVisibleTab failed:", chrome.runtime.lastError.message);
           sendResponse({ error: chrome.runtime.lastError.message });
         } else {
           sendResponse({ dataUrl });

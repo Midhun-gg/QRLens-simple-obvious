@@ -1,9 +1,15 @@
 {
   "manifest_version": 3,
   "name": "QRLens",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Scan and decode QR codes on any webpage – just click and drag.",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "action": {
     "default_title": "Scan QR Code",
     "default_icon": {

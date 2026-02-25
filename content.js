@@ -17,6 +17,23 @@
   window.__qrlens_active = true;
 
   /* ----------------------------------------------------------------
+   * Ensure jsQR is available as a global function.
+   * Some pages ship an AMD loader (define()) which causes jsQR's
+   * UMD wrapper to register as an AMD module instead of attaching
+   * to the global. We check and surface a clear error if missing.
+   * -------------------------------------------------------------- */
+  if (typeof jsQR !== "function") {
+    console.error("QRLens: jsQR library is not available on this page.");
+    const t = document.createElement("div");
+    t.className = "qrlens-toast qrlens-toast--error";
+    t.textContent = "QRLens: Failed to load decoder. Please try again.";
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+    window.__qrlens_active = false;
+    return;
+  }
+
+  /* ----------------------------------------------------------------
    * DOM helpers
    * -------------------------------------------------------------- */
   const el = (tag, cls) => {
@@ -64,14 +81,14 @@
   }
 
   /* ----------------------------------------------------------------
-   * Cleanup: remove all QRLens elements
+   * Cleanup: remove all QRLens elements (toasts self-remove)
    * -------------------------------------------------------------- */
   function cleanup() {
     overlay.remove();
     selection.remove();
     banner.remove();
     document.querySelectorAll(
-      ".qrlens-toast, .qrlens-loader-wrap"
+      ".qrlens-loader-wrap"
     ).forEach((n) => n.remove());
     window.__qrlens_active = false;
   }
@@ -215,16 +232,16 @@
           }
         }
       } else {
-        showToast("No QR code detected. Try a tighter selection.", "error", 3500);
+        showToast("No QR code detected. Try selecting a tighter area around the QR code.", "error", 5000);
       }
     } catch (err) {
       if (loader) loader.remove();
-      showToast("Capture failed – " + err.message, "error", 4000);
+      showToast("Capture failed – " + err.message, "error", 5000);
       console.error("QRLens error:", err);
     }
 
-    // Always clean up
-    setTimeout(cleanup, 200);
+    // Clean up overlay elements immediately; toasts self-remove
+    cleanup();
     document.removeEventListener("keydown", onKeyDown);
   }
 
