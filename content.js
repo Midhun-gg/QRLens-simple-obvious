@@ -136,29 +136,46 @@
   document.addEventListener("keydown", onKeyDown);
 
   /* ----------------------------------------------------------------
+   * Helper: wait for the browser to actually repaint
+   * -------------------------------------------------------------- */
+  function waitForRepaint() {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+  }
+
+  /* ----------------------------------------------------------------
    * Core: capture → crop → decode → open
    * -------------------------------------------------------------- */
   async function processSelection(rect) {
-    // Hide selection box, show loader
+    // 1. Remove ALL QRLens UI so capture sees the real page
     selection.remove();
     overlay.remove();
     banner.remove();
-    const loader = showLoader();
+
+    // 2. Wait for the browser to fully repaint without our overlay
+    await waitForRepaint();
+
+    let loader = null;
 
     try {
-      // 1. Ask background to capture the visible tab
+      // 3. Capture the visible tab (now clean, no overlay/spinner)
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({ type: "capture" }, (res) => {
           if (chrome.runtime.lastError) return reject(chrome.runtime.lastError);
-          if (res.error) return reject(new Error(res.error));
+          if (res && res.error) return reject(new Error(res.error));
+          if (!res || !res.dataUrl) return reject(new Error("Empty capture response"));
           resolve(res);
         });
       });
 
-      // 2. Load image from data URL
+      // 4. NOW show the loader while we decode
+      loader = showLoader();
+
+      // 5. Load image from data URL
       const img = await loadImage(response.dataUrl);
 
-      // 3. Crop to selected region (handle devicePixelRatio)
+      // 6. Crop to selected region (handle devicePixelRatio)
       const dpr    = window.devicePixelRatio || 1;
       const canvas = document.createElement("canvas");
       const ctx    = canvas.getContext("2d");
@@ -177,10 +194,10 @@
         canvas.height
       );
 
-      // 4. Attempt QR decode – try multiple strategies
+      // 7. Attempt QR decode – try multiple strategies
       const decoded = attemptDecode(canvas, ctx);
 
-      loader.remove();
+      if (loader) loader.remove();
 
       if (decoded) {
         // If it looks like a URL, open it; otherwise show it
@@ -201,7 +218,7 @@
         showToast("No QR code detected. Try a tighter selection.", "error", 3500);
       }
     } catch (err) {
-      loader.remove();
+      if (loader) loader.remove();
       showToast("Capture failed – " + err.message, "error", 4000);
       console.error("QRLens error:", err);
     }
@@ -224,34 +241,50 @@
     if (result && result.data) return result.data;
 
     // Pass 2: upscale 2× for small QR codes
-    const scale = 2;
-    const upCanvas = document.createElement("canvas");
-    const upCtx    = upCanvas.getContext("2d");
-    upCanvas.width  = w * scale;
-    upCanvas.height = h * scale;
-    upCtx.imageSmoothingEnabled = false;
-    upCtx.drawImage(canvas, 0, 0, upCanvas.width, upCanvas.height);
-    const upData = upCtx.getImageData(0, 0, upCanvas.width, upCanvas.height);
-    const result2 = jsQR(upData.data, upCanvas.width, upCanvas.height, { inversionAttempts: "attemptBoth" });
+    const up2 = upscaleCanvas(canvas, 2);
+    const up2Data = up2.getContext("2d").getImageData(0, 0, up2.width, up2.height);
+    const result2 = jsQR(up2Data.data, up2.width, up2.height, { inversionAttempts: "attemptBoth" });
     if (result2 && result2.data) return result2.data;
 
-    // Pass 3: grayscale + high contrast
-    const grayCanvas = document.createElement("canvas");
-    const grayCtx    = grayCanvas.getContext("2d");
-    grayCanvas.width  = w;
-    grayCanvas.height = h;
-    grayCtx.drawImage(canvas, 0, 0);
-    const grayData = grayCtx.getImageData(0, 0, w, h);
-    for (let i = 0; i < grayData.data.length; i += 4) {
-      const avg = (grayData.data[i] + grayData.data[i+1] + grayData.data[i+2]) / 3;
-      const bw  = avg > 128 ? 255 : 0; // threshold to pure B&W
-      grayData.data[i] = grayData.data[i+1] = grayData.data[i+2] = bw;
-    }
-    grayCtx.putImageData(grayData, 0, 0);
-    const result3 = jsQR(grayData.data, w, h, { inversionAttempts: "attemptBoth" });
+    // Pass 3: grayscale + high-contrast B&W threshold
+    const bwData = toBW(ctx.getImageData(0, 0, w, h));
+    const result3 = jsQR(bwData.data, w, h, { inversionAttempts: "attemptBoth" });
     if (result3 && result3.data) return result3.data;
 
+    // Pass 4: 3× upscale + B&W (catches very small QR codes)
+    const up3 = upscaleCanvas(canvas, 3);
+    const up3Ctx = up3.getContext("2d");
+    const up3BW = toBW(up3Ctx.getImageData(0, 0, up3.width, up3.height));
+    const result4 = jsQR(up3BW.data, up3.width, up3.height, { inversionAttempts: "attemptBoth" });
+    if (result4 && result4.data) return result4.data;
+
     return null;
+  }
+
+  /* ----------------------------------------------------------------
+   * Helper: upscale a canvas by a given factor (nearest-neighbor)
+   * -------------------------------------------------------------- */
+  function upscaleCanvas(source, scale) {
+    const c = document.createElement("canvas");
+    const cx = c.getContext("2d");
+    c.width  = source.width * scale;
+    c.height = source.height * scale;
+    cx.imageSmoothingEnabled = false;
+    cx.drawImage(source, 0, 0, c.width, c.height);
+    return c;
+  }
+
+  /* ----------------------------------------------------------------
+   * Helper: convert ImageData to pure black & white
+   * -------------------------------------------------------------- */
+  function toBW(imageData) {
+    const d = imageData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const avg = (d[i] + d[i + 1] + d[i + 2]) / 3;
+      const bw  = avg > 128 ? 255 : 0;
+      d[i] = d[i + 1] = d[i + 2] = bw;
+    }
+    return imageData;
   }
 
   /* ----------------------------------------------------------------
